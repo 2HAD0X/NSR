@@ -1,1 +1,47 @@
-
+Build · YML
+name: Build APK
+ 
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+ 
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+ 
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+ 
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+ 
+      - name: Android-Projekt erzeugen
+        run: |
+          flutter create --platforms=android --project-name account_hub --org com.example tmp
+          cp -r tmp/android ./android
+          rm -rf tmp
+ 
+      - name: Links erlauben und App-Namen setzen
+        run: |
+          python3 - <<'EOF'
+          p = 'android/app/src/main/AndroidManifest.xml'
+          s = open(p).read()
+          q = '<queries><intent><action android:name="android.intent.action.VIEW"/><data android:scheme="https"/></intent></queries>'
+          s = s.replace('<application', q + '<application', 1)
+          open(p, 'w').write(s)
+          EOF
+          sed -i 's/android:label="[^"]*"/android:label="Account Hub"/' android/app/src/main/AndroidManifest.xml
+ 
+      - run: flutter pub get
+      - run: flutter build apk --release
+ 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: account-hub-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
